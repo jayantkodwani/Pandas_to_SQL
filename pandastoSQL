@@ -1,0 +1,32 @@
+import pandas as pd
+import pandas_to_sql
+
+iris = pd.read_csv('https://github.com/jayantkodwani/AI-Text-Analytics/blob/main/iris.csv')
+table_name = 'iris'
+df = pandas_to_sql.wrap_df(iris, table_name)
+df.get_sql_string()
+# output:
+# 'SELECT (sepal_length) AS sepal_length, (sepal_width) AS sepal_width, (petal_length) AS petal_length, (petal_width) AS petal_width, (species) AS species FROM iris'
+
+
+df[(df.petal_length>1.4) & (df.petal_width<.2)].get_sql_string()
+# output:
+# 'SELECT (sepal_length) AS sepal_length, (sepal_width) AS sepal_width, (petal_length) AS petal_length, (petal_width) AS petal_width, (species) AS species FROM iris WHERE (((petal_length > 1.4) AND (petal_width < 0.2)))'
+
+
+from pandas_to_sql import conventions
+species_petal_length_stats_df = df.groupby('species').agg({'petal_length':['mean','sum','count']})
+species_petal_length_stats_df = conventions.flatten_grouped_dataframe(species_petal_length_stats_df)
+species_petal_length_stats_df.get_sql_string()
+# output:
+# 'SELECT (avg(petal_length)) AS petal_length_mean, (sum(petal_length)) AS petal_length_sum, (count(petal_length)) AS petal_length_count, (species) AS species FROM iris GROUP BY species'
+
+
+pd_wrapped = pandas_to_sql.wrap_pd(pd)
+df_ = copy(df)
+df_['sepal_width_rounded'] = df_.sepal_width.round()
+df_1 = df_[df_.species=='setosa'].reset_index(drop=True)
+df_2 = df_[df_.species=='versicolor'].reset_index(drop=True)
+pd_wrapped.concat([df_1, df_2]).get_sql_string()
+# output:
+# 'SELECT (sepal_length) AS sepal_length, (sepal_width) AS sepal_width, (petal_length) AS petal_length, (petal_width) AS petal_width, (species) AS species, ((CASE WHEN ((ABS(sepal_width) - ROUND(ABS(sepal_width)-0.5))==.5) AND ((CAST(sepal_width AS INT))%2 == 0) THEN (CASE WHEN sepal_width>0 THEN ROUND(sepal_width-0.001) ELSE ROUND(sepal_width+0.001) END) ELSE (ROUND(sepal_width)) END)) AS sepal_width_rounded FROM iris WHERE ((species = 'setosa')) UNION ALL SELECT (sepal_length) AS sepal_length, (sepal_width) AS sepal_width, (petal_length) AS petal_length, (petal_width) AS petal_width, (species) AS species, ((CASE WHEN ((ABS(sepal_width) - ROUND(ABS(sepal_width)-0.5))==.5) AND ((CAST(sepal_width AS INT))%2 == 0) THEN (CASE WHEN sepal_width>0 THEN ROUND(sepal_width-0.001) ELSE ROUND(sepal_width+0.001) END) ELSE (ROUND(sepal_width)) END)) AS sepal_width_rounded FROM iris WHERE ((species = 'versicolor'))'
